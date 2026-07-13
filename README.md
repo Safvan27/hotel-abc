@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel ABC — Ordering & Billing
 
-## Getting Started
+A mobile/tablet/laptop-responsive ordering and billing app for waiters and admins, built from the Hotel ABC Claude Design prototype. Frontend-only prototype with in-memory mock data (no backend yet).
 
-First, run the development server:
+## Features
+
+- **Login** — Waiter/Admin role toggle (any username/password works in this prototype)
+- **Tables** — sectioned by area (Dine In Hall / AC Family / Non-AC / Outdoor), color-coded by status (Free / Occupied / Ready to Bill)
+- **Order screen** — category chips, search, item grid, cart with per-item special-instruction notes
+- **Invoice / cart** — Hold Order, Send to Kitchen (KOT), Print Bill, Cancel Order, customer details — shown as a persistent side panel on wide screens and a bottom-sheet drawer on mobile
+- **Admin dashboard** — sales overview, menu items & categories, tables & sections, staff accounts, sales reports
+- Installable as a **PWA** (manifest + offline-caching service worker)
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Project structure
 
-To learn more about Next.js, take a look at the following resources:
+- `src/app` — Next.js App Router entry (`layout.tsx`, `page.tsx`, `manifest.ts`)
+- `src/components` — screens (`LoginScreen`, `TablesScreen`, `OrderScreen`, `AdminScreen`) and shared UI (`InvoicePanel`, `NoteModal`, `CustomerModal`, `Toast`)
+- `src/lib` — mock data (`data.ts`), shared color tokens (`colors.ts`), types (`types.ts`)
+- `src/hooks/useIsNarrow.ts` — responsive breakpoint hook (900px)
+- `public/sw.js` — service worker for offline app-shell caching
+- `scripts/gen-icons.js` — regenerates the PWA icons in `public/icons` and `src/app` if the brand color changes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Next steps
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is currently frontend-only with mock, in-memory data — logins aren't verified, orders don't persist across refresh, and there's no real kitchen printer integration. A real backend (auth, database, KOT printing) would be the natural next step before using this in production.
