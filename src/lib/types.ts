@@ -23,6 +23,7 @@ export interface HotelTable {
   section: string;
   seats: number;
   status: TableStatus;
+  occupiedSince?: number;
 }
 
 export interface CartItem {

@@ -59,12 +59,14 @@ function buildTables(): HotelTable[] {
   const seatsPattern = [2, 4, 4, 6, 4, 2];
   SECTIONS.forEach((section, si) => {
     for (let i = 0; i < 6; i++) {
+      const status = STATUSES[(n + si) % STATUSES.length];
       tables.push({
         id: "T" + n,
         num: n,
         section,
         seats: seatsPattern[i % 6],
-        status: STATUSES[(n + si) % STATUSES.length],
+        status,
+        occupiedSince: status !== "free" ? Date.now() - (((n * 13) % 90) + 5) * 60 * 1000 : undefined,
       });
       n++;
     }
