@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { colors, statusColors } from "@/lib/colors";
 import { SECTIONS } from "@/lib/data";
 import type { HotelTable, Role } from "@/lib/types";
@@ -14,10 +14,24 @@ interface Props {
   onLogout: () => void;
 }
 
+function formatOccupiedDuration(since: number, now: number) {
+  const mins = Math.max(0, Math.floor((now - since) / 60000));
+  if (mins < 60) return mins + "m";
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return hrs + "h " + rem + "m";
+}
+
 export default function TablesScreen({ tables, role, userDisplay, onOpenTable, onGoAdmin, onLogout }: Props) {
   const [sectionFilter, setSectionFilter] = useState(SECTIONS[0]);
+  const [now, setNow] = useState(() => Date.now());
   const visibleTables = tables.filter((t) => t.section === sectionFilter);
   const roleLabel = role === "admin" ? "Admin" : "Waiter";
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const legendDot = (color: string) => (
     <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
@@ -147,7 +161,7 @@ export default function TablesScreen({ tables, role, userDisplay, onOpenTable, o
                   textAlign: "left",
                 }}
               >
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{tbl.num}</div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>Table {tbl.num}</div>
                 <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{tbl.seats} seats</div>
                 <div
                   style={{
@@ -162,6 +176,11 @@ export default function TablesScreen({ tables, role, userDisplay, onOpenTable, o
                 >
                   {sc.label}
                 </div>
+                {tbl.status !== "free" && tbl.occupiedSince && (
+                  <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.7 }}>
+                    {formatOccupiedDuration(tbl.occupiedSince, now)}
+                  </div>
+                )}
               </button>
             );
           })}

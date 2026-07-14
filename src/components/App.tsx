@@ -57,7 +57,9 @@ export default function App() {
     setScreen("order");
     setSelectedTableId(tbl.id);
     setCart([]);
-    setTables((ts) => ts.map((t) => (t.id === tbl.id ? { ...t, status: "occupied" } : t)));
+    setTables((ts) =>
+      ts.map((t) => (t.id === tbl.id ? { ...t, status: "occupied", occupiedSince: t.occupiedSince ?? Date.now() } : t))
+    );
   };
 
   const handleAddToCart = (itemId: string) => {
@@ -107,7 +109,7 @@ export default function App() {
   };
   const cancelOrder = () => {
     setCart([]);
-    setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "free" } : t)));
+    setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "free", occupiedSince: undefined } : t)));
     showToast("Order cancelled");
   };
   const printBill = () => {
