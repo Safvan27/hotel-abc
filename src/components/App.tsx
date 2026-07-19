@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useIsNarrow } from "@/hooks/useIsNarrow";
-import { ITEMS, TABLES } from "@/lib/data";
-import type { CartItem, HotelTable, Role, Screen, ServeSection } from "@/lib/types";
+import { fetchCategories, fetchItems, fetchOrderForTable, fetchSections, fetchTables, saveOrder } from "@/lib/api";
+import type { CartItem, Category, HotelTable, MenuItem, OrderStatus, Role, Screen, ServeSection } from "@/lib/types";
 import LoginScreen from "./LoginScreen";
 import TablesScreen from "./TablesScreen";
 import OrderScreen from "./OrderScreen";
@@ -18,7 +18,12 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [role, setRole] = useState<Role | null>(null);
   const [userDisplay, setUserDisplay] = useState("");
-  const [tables, setTables] = useState<HotelTable[]>(TABLES);
+  const [tables, setTables] = useState<HotelTable[]>([]);
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [serveSection, setServeSection] = useState<ServeSection>("Dine In");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -39,6 +44,27 @@ export default function App() {
 
   const selectedTable = tables.find((t) => t.id === selectedTableId) || null;
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [t, i, c, s] = await Promise.all([fetchTables(), fetchItems(), fetchCategories(), fetchSections()]);
+        if (cancelled) return;
+        setTables(t);
+        setItems(i);
+        setCategories(c);
+        setSections(s);
+        setDataLoaded(true);
+      } catch (err) {
+        if (cancelled) return;
+        setDataError(err instanceof Error ? err.message : "Failed to load data");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleLogin = (r: Role, username: string) => {
     setRole(r);
     setUserDisplay(username || (r === "admin" ? "Admin" : "Waiter Raj"));
@@ -53,17 +79,34 @@ export default function App() {
     setCart([]);
   };
 
-  const handleOpenTable = (tbl: HotelTable) => {
+  const handleOpenTable = async (tbl: HotelTable) => {
     setScreen("order");
     setSelectedTableId(tbl.id);
-    setCart([]);
     setTables((ts) =>
       ts.map((t) => (t.id === tbl.id ? { ...t, status: "occupied", occupiedSince: t.occupiedSince ?? Date.now() } : t))
     );
+
+    const existing = await fetchOrderForTable(tbl.id).catch(() => null);
+    if (existing) {
+      setCart(existing.items);
+      setServeSection(existing.serveSection);
+      setCustomerName(existing.customerName);
+      setCustomerPhone(existing.customerPhone);
+    } else {
+      setCart([]);
+      setServeSection("Dine In");
+      setCustomerName("");
+      setCustomerPhone("");
+    }
+  };
+
+  const persistOrder = (status: OrderStatus) => {
+    if (!selectedTableId) return Promise.resolve();
+    return saveOrder({ tableId: selectedTableId, status, serveSection, customerName, customerPhone, items: cart });
   };
 
   const handleAddToCart = (itemId: string) => {
-    const item = ITEMS.find((i) => i.id === itemId);
+    const item = items.find((i) => i.id === itemId);
     if (!item) return;
     setCart((c) => {
       const existing = c.find((ci) => ci.itemId === item.id && !ci.note);
@@ -96,32 +139,36 @@ export default function App() {
     setNoteDraft("");
   };
 
-  const holdOrder = () => {
+  const holdOrder = async () => {
+    await persistOrder("held");
     showToast("Order held for Table " + (selectedTable ? selectedTable.num : ""));
     setScreen("tables");
   };
-  const sendOrder = () => {
+  const sendOrder = async () => {
     if (cart.length === 0) {
       showToast("Add items before sending to kitchen");
       return;
     }
+    await persistOrder("sent");
     showToast("Sent to kitchen • KOT printed");
   };
-  const cancelOrder = () => {
+  const cancelOrder = async () => {
+    await persistOrder("cancelled");
     setCart([]);
     setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "free", occupiedSince: undefined } : t)));
     showToast("Order cancelled");
   };
-  const printBill = () => {
+  const printBill = async () => {
     if (cart.length === 0) {
       showToast("Add items before printing");
       return;
     }
+    await persistOrder("billing");
     setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "billing" } : t)));
     showToast("Bill sent to printer");
   };
 
-  const noteItem = noteItemId ? ITEMS.find((i) => i.id === noteItemId) : null;
+  const noteItem = noteItemId ? items.find((i) => i.id === noteItemId) : null;
 
   return (
     <div
@@ -137,9 +184,20 @@ export default function App() {
     >
       {screen === "login" && <LoginScreen onLogin={handleLogin} />}
 
-      {screen === "tables" && role && (
+      {screen !== "login" && dataError && (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center" }}>
+          Failed to load data from the server: {dataError}
+        </div>
+      )}
+
+      {screen !== "login" && !dataLoaded && !dataError && (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>
+      )}
+
+      {screen === "tables" && role && dataLoaded && (
         <TablesScreen
           tables={tables}
+          sections={sections}
           role={role}
           userDisplay={userDisplay}
           onOpenTable={handleOpenTable}
@@ -148,9 +206,11 @@ export default function App() {
         />
       )}
 
-      {screen === "order" && selectedTable && (
+      {screen === "order" && selectedTable && dataLoaded && (
         <OrderScreen
           table={selectedTable}
+          items={items}
+          categories={categories}
           cart={cart}
           serveSection={serveSection}
           customerName={customerName}
@@ -169,7 +229,16 @@ export default function App() {
         />
       )}
 
-      {screen === "admin" && <AdminScreen isNarrow={isNarrow} onBackToTables={() => setScreen("tables")} />}
+      {screen === "admin" && dataLoaded && (
+        <AdminScreen
+          isNarrow={isNarrow}
+          tables={tables}
+          items={items}
+          categories={categories}
+          sections={sections}
+          onBackToTables={() => setScreen("tables")}
+        />
+      )}
 
       {noteItem && (
         <NoteModal itemName={noteItem.name} draft={noteDraft} onDraftChange={setNoteDraft} onClose={closeNote} onSave={saveNote} />

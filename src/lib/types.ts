@@ -34,3 +34,15 @@ export interface CartItem {
   qty: number;
   note: string;
 }
+
+export type OrderStatus = "open" | "held" | "sent" | "billing" | "completed" | "cancelled";
+
+export interface OrderRecord {
+  id: number;
+  tableId: string;
+  status: OrderStatus;
+  serveSection: ServeSection;
+  customerName: string;
+  customerPhone: string;
+  items: CartItem[];
+}

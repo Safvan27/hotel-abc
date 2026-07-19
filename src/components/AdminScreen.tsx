@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { colors } from "@/lib/colors";
-import { CATEGORIES, ITEMS, SECTIONS, TABLES } from "@/lib/data";
-import type { AdminTab } from "@/lib/types";
+import type { AdminTab, Category, HotelTable, MenuItem } from "@/lib/types";
 
 interface Props {
   isNarrow: boolean;
+  tables: HotelTable[];
+  items: MenuItem[];
+  categories: Category[];
+  sections: string[];
   onBackToTables: () => void;
 }
 
@@ -59,7 +62,7 @@ const REPORT_DAYS: [string, number][] = [
   ["Sun", 65],
 ];
 
-export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
+export default function AdminScreen({ isNarrow, tables, items, categories, sections, onBackToTables }: Props) {
   const [tab, setTab] = useState<AdminTab>("overview");
   const adminWide = !isNarrow;
   const navWidth = adminWide ? 210 : 56;
@@ -151,8 +154,8 @@ export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
               <Card label="Orders Today" value="64" sub="5 in progress" />
               <Card
                 label="Active Tables"
-                value={`${TABLES.filter((t) => t.status !== "free").length} / ${TABLES.length}`}
-                sub="across 4 sections"
+                value={`${tables.filter((t) => t.status !== "free").length} / ${tables.length}`}
+                sub={`across ${sections.length} sections`}
               />
               <Card label="Staff Online" value="5" sub="2 admins, 3 waiters" />
             </div>
@@ -162,7 +165,7 @@ export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
         {tab === "menu" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>Menu Items & Categories</div>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <div key={c.id} style={{ background: "white", borderRadius: 12, border: `1px solid ${colors.borderLight}`, overflow: "hidden" }}>
                 <div
                   style={{
@@ -176,11 +179,11 @@ export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
                 >
                   {c.label}
                   <span style={{ color: colors.mutedLight, fontWeight: 500 }}>
-                    {ITEMS.filter((i) => i.cat === c.id).length} items
+                    {items.filter((i) => i.cat === c.id).length} items
                   </span>
                 </div>
                 <div>
-                  {ITEMS.filter((i) => i.cat === c.id).map((i) => (
+                  {items.filter((i) => i.cat === c.id).map((i) => (
                     <div
                       key={i.id}
                       style={{
@@ -204,7 +207,7 @@ export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
         {tab === "tables" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>Tables & Sections</div>
-            {SECTIONS.map((sec) => (
+            {sections.map((sec) => (
               <div
                 key={sec}
                 style={{
@@ -220,7 +223,7 @@ export default function AdminScreen({ isNarrow, onBackToTables }: Props) {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{sec}</div>
                   <div style={{ fontSize: "11.5px", color: colors.mutedLight }}>
-                    {TABLES.filter((t) => t.section === sec).length} tables
+                    {tables.filter((t) => t.section === sec).length} tables
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: colors.accent }}>Manage</span>

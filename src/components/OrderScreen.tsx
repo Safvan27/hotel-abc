@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { colors } from "@/lib/colors";
-import { CATEGORIES, ITEMS } from "@/lib/data";
-import type { CartItem, HotelTable, ServeSection } from "@/lib/types";
+import type { CartItem, Category, HotelTable, MenuItem, ServeSection } from "@/lib/types";
 import InvoicePanel from "./InvoicePanel";
 
 interface Props {
   table: HotelTable;
+  items: MenuItem[];
+  categories: Category[];
   cart: CartItem[];
   serveSection: ServeSection;
   customerName: string;
@@ -27,6 +28,8 @@ interface Props {
 
 export default function OrderScreen({
   table,
+  items,
+  categories,
   cart,
   serveSection,
   customerName,
@@ -43,13 +46,13 @@ export default function OrderScreen({
   onPrint,
   onCancel,
 }: Props) {
-  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0].id);
+  const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
 
   const q = search.trim().toLowerCase();
-  const catItems = ITEMS.filter((it) => it.cat === activeCategory);
-  const filteredItems = q ? ITEMS.filter((it) => it.name.toLowerCase().includes(q)) : catItems;
+  const catItems = items.filter((it) => it.cat === activeCategory);
+  const filteredItems = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : catItems;
 
   const subtotal = cart.reduce((sum, c) => sum + c.price * c.qty, 0);
   const total = subtotal * 1.05;
@@ -144,7 +147,7 @@ export default function OrderScreen({
       </div>
 
       <div style={{ flex: "none", display: "flex", gap: 8, padding: "12px 16px 0", overflowX: "auto" }}>
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setActiveCategory(cat.id)}
