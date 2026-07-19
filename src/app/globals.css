@@ -56,3 +56,16 @@ textarea {
   background: oklch(0.85 0.01 250);
   border-radius: 8px;
 }
+
+.table-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.table-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px oklch(0.2 0.02 260 / 0.1);
+}
+
+.table-card:active {
+  transform: translateY(0);
+}
