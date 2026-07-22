@@ -22,5 +22,6 @@ export const colors = {
 export const statusColors: Record<TableStatus, { bg: string; border: string; dot: string; label: string }> = {
   free: { bg: "oklch(0.94 0.03 150)", border: "oklch(0.7 0.1 150)", dot: "oklch(0.6 0.13 150)", label: "Free" },
   occupied: { bg: "oklch(0.94 0.05 75)", border: "oklch(0.72 0.13 75)", dot: "oklch(0.65 0.15 75)", label: "Occupied" },
+  ordered: { bg: "oklch(0.93 0.05 300)", border: "oklch(0.68 0.13 300)", dot: "oklch(0.58 0.16 300)", label: "Order Sent" },
   billing: { bg: "oklch(0.93 0.03 250)", border: "oklch(0.65 0.14 250)", dot: "oklch(0.55 0.15 250)", label: "Ready to Bill" },
 };

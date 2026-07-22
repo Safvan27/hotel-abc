@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useIsNarrow } from "@/hooks/useIsNarrow";
-import { fetchCategories, fetchItems, fetchOrderForTable, fetchSections, fetchTables, saveOrder } from "@/lib/api";
-import type { CartItem, Category, HotelTable, MenuItem, OrderStatus, Role, Screen, ServeSection } from "@/lib/types";
+import { createTable, deleteTable, fetchCategories, fetchItems, fetchOrderForTable, fetchSections, fetchTables, saveOrder, updateTable } from "@/lib/api";
+import type { TableInput } from "@/lib/api";
+import type { CartItem, Category, HotelTable, MenuItem, OrderStatus, Role, Screen, ServeSection, TableStatus } from "@/lib/types";
 import LoginScreen from "./LoginScreen";
 import TablesScreen from "./TablesScreen";
 import OrderScreen from "./OrderScreen";
@@ -79,12 +80,46 @@ export default function App() {
     setCart([]);
   };
 
+  const handleAddTable = async (input: TableInput) => {
+    try {
+      const created = await createTable(input);
+      setTables((ts) => [...ts, created].sort((a, b) => a.num - b.num));
+      showToast(`Table ${created.num} added`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to add table");
+      throw err;
+    }
+  };
+
+  const handleUpdateTable = async (id: string, input: TableInput) => {
+    try {
+      await updateTable(id, input);
+      setTables((ts) => ts.map((t) => (t.id === id ? { ...t, ...input, name: input.name || undefined } : t)));
+      showToast("Table updated");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to update table");
+      throw err;
+    }
+  };
+
+  const handleDeleteTable = async (id: string) => {
+    try {
+      await deleteTable(id);
+      setTables((ts) => ts.filter((t) => t.id !== id));
+      showToast("Table removed");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to remove table");
+      throw err;
+    }
+  };
+
+  const syncTableStatus = (id: string, patch: { status?: TableStatus; occupiedSince?: number | null }) => {
+    updateTable(id, patch).catch(() => showToast("Table status change wasn't saved to the server"));
+  };
+
   const handleOpenTable = async (tbl: HotelTable) => {
     setScreen("order");
     setSelectedTableId(tbl.id);
-    setTables((ts) =>
-      ts.map((t) => (t.id === tbl.id ? { ...t, status: "occupied", occupiedSince: t.occupiedSince ?? Date.now() } : t))
-    );
 
     const existing = await fetchOrderForTable(tbl.id).catch(() => null);
     if (existing) {
@@ -98,6 +133,13 @@ export default function App() {
       setCustomerName("");
       setCustomerPhone("");
     }
+  };
+
+  const handleMarkOccupied = async (tbl: HotelTable) => {
+    const occupiedSince = Date.now();
+    setTables((ts) => ts.map((t) => (t.id === tbl.id ? { ...t, status: "occupied", occupiedSince } : t)));
+    syncTableStatus(tbl.id, { status: "occupied", occupiedSince });
+    await handleOpenTable(tbl);
   };
 
   const persistOrder = (status: OrderStatus) => {
@@ -139,33 +181,65 @@ export default function App() {
     setNoteDraft("");
   };
 
+  const handleSaveError = async (err: unknown, fallbackMsg: string) => {
+    showToast(err instanceof Error ? err.message : fallbackMsg);
+    // the table list may be stale (e.g. the table was removed elsewhere) — resync it
+    try {
+      setTables(await fetchTables());
+    } catch {
+      // keep the existing list if the refetch also fails
+    }
+  };
+
   const holdOrder = async () => {
-    await persistOrder("held");
-    showToast("Order held for Table " + (selectedTable ? selectedTable.num : ""));
-    setScreen("tables");
+    try {
+      await persistOrder("held");
+      showToast("Order held for Table " + (selectedTable ? selectedTable.num : ""));
+      setScreen("tables");
+    } catch (err) {
+      await handleSaveError(err, "Failed to hold order");
+    }
   };
   const sendOrder = async () => {
     if (cart.length === 0) {
       showToast("Add items before sending to kitchen");
       return;
     }
-    await persistOrder("sent");
-    showToast("Sent to kitchen • KOT printed");
+    try {
+      await persistOrder("sent");
+      if (selectedTableId) {
+        setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "ordered" } : t)));
+        syncTableStatus(selectedTableId, { status: "ordered" });
+      }
+      showToast("Sent to kitchen • KOT printed");
+    } catch (err) {
+      await handleSaveError(err, "Failed to send order");
+    }
   };
   const cancelOrder = async () => {
-    await persistOrder("cancelled");
-    setCart([]);
-    setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "free", occupiedSince: undefined } : t)));
-    showToast("Order cancelled");
+    try {
+      await persistOrder("cancelled");
+      setCart([]);
+      setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "free", occupiedSince: undefined } : t)));
+      if (selectedTableId) syncTableStatus(selectedTableId, { status: "free", occupiedSince: null });
+      showToast("Order cancelled");
+    } catch (err) {
+      await handleSaveError(err, "Failed to cancel order");
+    }
   };
   const printBill = async () => {
     if (cart.length === 0) {
       showToast("Add items before printing");
       return;
     }
-    await persistOrder("billing");
-    setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "billing" } : t)));
-    showToast("Bill sent to printer");
+    try {
+      await persistOrder("billing");
+      setTables((ts) => ts.map((t) => (t.id === selectedTableId ? { ...t, status: "billing" } : t)));
+      if (selectedTableId) syncTableStatus(selectedTableId, { status: "billing" });
+      showToast("Bill sent to printer");
+    } catch (err) {
+      await handleSaveError(err, "Failed to print bill");
+    }
   };
 
   const noteItem = noteItemId ? items.find((i) => i.id === noteItemId) : null;
@@ -201,6 +275,7 @@ export default function App() {
           role={role}
           userDisplay={userDisplay}
           onOpenTable={handleOpenTable}
+          onMarkOccupied={handleMarkOccupied}
           onGoAdmin={() => setScreen("admin")}
           onLogout={handleLogout}
         />
@@ -237,6 +312,9 @@ export default function App() {
           categories={categories}
           sections={sections}
           onBackToTables={() => setScreen("tables")}
+          onAddTable={handleAddTable}
+          onUpdateTable={handleUpdateTable}
+          onDeleteTable={handleDeleteTable}
         />
       )}
 

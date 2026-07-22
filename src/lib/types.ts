@@ -1,6 +1,6 @@
 export type Screen = "login" | "tables" | "order" | "admin";
 export type Role = "waiter" | "admin";
-export type TableStatus = "free" | "occupied" | "billing";
+export type TableStatus = "free" | "occupied" | "ordered" | "billing";
 export type ServeSection = "Dine In" | "Parcel" | "Delivery";
 export type InvoiceTab = "invoice" | "customer" | "held" | "transactions";
 export type AdminTab = "overview" | "menu" | "tables" | "staff" | "reports";
@@ -24,6 +24,7 @@ export interface HotelTable {
   seats: number;
   status: TableStatus;
   occupiedSince?: number;
+  name?: string;
 }
 
 export interface CartItem {

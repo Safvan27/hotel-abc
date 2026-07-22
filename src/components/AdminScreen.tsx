@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { colors } from "@/lib/colors";
+import { colors, statusColors } from "@/lib/colors";
+import type { TableInput } from "@/lib/api";
 import type { AdminTab, Category, HotelTable, MenuItem } from "@/lib/types";
+import TableFormModal from "./TableFormModal";
 
 interface Props {
   isNarrow: boolean;
@@ -11,6 +13,9 @@ interface Props {
   categories: Category[];
   sections: string[];
   onBackToTables: () => void;
+  onAddTable: (input: TableInput) => Promise<void>;
+  onUpdateTable: (id: string, input: TableInput) => Promise<void>;
+  onDeleteTable: (id: string) => Promise<void>;
 }
 
 const NAV_ITEMS: { id: AdminTab; label: string; icon: string }[] = [
@@ -62,10 +67,35 @@ const REPORT_DAYS: [string, number][] = [
   ["Sun", 65],
 ];
 
-export default function AdminScreen({ isNarrow, tables, items, categories, sections, onBackToTables }: Props) {
+export default function AdminScreen({
+  isNarrow,
+  tables,
+  items,
+  categories,
+  sections,
+  onBackToTables,
+  onAddTable,
+  onUpdateTable,
+  onDeleteTable,
+}: Props) {
   const [tab, setTab] = useState<AdminTab>("overview");
+  const [formTarget, setFormTarget] = useState<HotelTable | "new" | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const adminWide = !isNarrow;
   const navWidth = adminWide ? 210 : 56;
+
+  const handleDeleteClick = async (t: HotelTable) => {
+    const label = "Table " + t.num + (t.name ? " (" + t.name + ")" : "");
+    if (!window.confirm(`Remove ${label}? This can't be undone.`)) return;
+    setDeletingId(t.id);
+    try {
+      await onDeleteTable(t.id);
+    } catch {
+      // failure toast is surfaced by the caller
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div style={{ flex: 1, display: "flex", minHeight: "100vh" }}>
@@ -206,29 +236,120 @@ export default function AdminScreen({ isNarrow, tables, items, categories, secti
 
         {tab === "tables" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Tables & Sections</div>
-            {sections.map((sec) => (
-              <div
-                key={sec}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Tables & Sections</div>
+              <button
+                onClick={() => setFormTarget("new")}
                 style={{
-                  background: "white",
-                  borderRadius: 12,
-                  border: `1px solid ${colors.borderLight}`,
-                  padding: "14px 16px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  padding: "8px 14px",
+                  borderRadius: 9,
+                  border: "none",
+                  background: colors.accent,
+                  color: "white",
+                  fontWeight: 700,
+                  fontSize: "12.5px",
+                  cursor: "pointer",
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "13.5px" }}>{sec}</div>
-                  <div style={{ fontSize: "11.5px", color: colors.mutedLight }}>
-                    {tables.filter((t) => t.section === sec).length} tables
+                + Add Table
+              </button>
+            </div>
+
+            {sections.map((sec) => {
+              const secTables = tables.filter((t) => t.section === sec).sort((a, b) => a.num - b.num);
+              return (
+                <div key={sec} style={{ background: "white", borderRadius: 12, border: `1px solid ${colors.borderLight}`, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      background: colors.panelBg,
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    {sec}
+                    <span style={{ color: colors.mutedLight, fontWeight: 500 }}>{secTables.length} tables</span>
+                  </div>
+                  <div>
+                    {secTables.length === 0 && (
+                      <div style={{ padding: "14px 16px", fontSize: "12.5px", color: colors.mutedLight }}>No tables yet</div>
+                    )}
+                    {secTables.map((t) => {
+                      const sc = statusColors[t.status];
+                      const canDelete = t.status === "free" && deletingId !== t.id;
+                      return (
+                        <div
+                          key={t.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "10px 16px",
+                            borderTop: `1px solid ${colors.panelBg}`,
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: "12.5px" }}>
+                              Table {t.num}
+                              {t.name ? ` · ${t.name}` : ""}
+                            </div>
+                            <div style={{ fontSize: "11.5px", color: colors.mutedLight }}>{t.seats} seats</div>
+                          </div>
+                          <span
+                            style={{
+                              fontSize: "10.5px",
+                              fontWeight: 700,
+                              padding: "3px 10px",
+                              borderRadius: 20,
+                              background: sc.bg,
+                              color: sc.dot,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {sc.label}
+                          </span>
+                          <button
+                            onClick={() => setFormTarget(t)}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 7,
+                              border: `1px solid ${colors.border}`,
+                              background: "white",
+                              fontSize: "11.5px",
+                              fontWeight: 700,
+                              color: colors.accent,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(t)}
+                            disabled={!canDelete}
+                            title={t.status !== "free" ? "Table must be free before it can be removed" : undefined}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 7,
+                              border: `1px solid ${colors.dangerBorder}`,
+                              background: "white",
+                              fontSize: "11.5px",
+                              fontWeight: 700,
+                              color: colors.danger,
+                              cursor: canDelete ? "pointer" : "default",
+                              opacity: canDelete ? 1 : 0.45,
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: colors.accent }}>Manage</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -307,6 +428,25 @@ export default function AdminScreen({ isNarrow, tables, items, categories, secti
           </div>
         )}
       </div>
+
+      {formTarget && (
+        <TableFormModal
+          title={formTarget === "new" ? "Add Table" : `Edit Table ${formTarget.num}`}
+          submitLabel={formTarget === "new" ? "Add Table" : "Save Changes"}
+          sections={sections}
+          initialSection={formTarget === "new" ? sections[0] ?? "" : formTarget.section}
+          initialSeats={formTarget === "new" ? 2 : formTarget.seats}
+          initialName={formTarget === "new" ? "" : formTarget.name ?? ""}
+          onClose={() => setFormTarget(null)}
+          onSubmit={async (input) => {
+            if (formTarget === "new") {
+              await onAddTable(input);
+            } else {
+              await onUpdateTable(formTarget.id, input);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
