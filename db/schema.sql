@@ -29,8 +29,9 @@ CREATE TABLE dbo.HotelTables (
     num           INT NOT NULL,
     sectionId     INT NOT NULL FOREIGN KEY REFERENCES dbo.Sections(id),
     seats         INT NOT NULL,
-    status        NVARCHAR(20) NOT NULL DEFAULT 'free' CHECK (status IN ('free', 'occupied', 'billing')),
-    occupiedSince DATETIME2 NULL
+    status        NVARCHAR(20) NOT NULL DEFAULT 'free' CHECK (status IN ('free', 'occupied', 'ordered', 'billing')),
+    occupiedSince DATETIME2 NULL,
+    name          NVARCHAR(50) NULL
 );
 GO
 
@@ -55,21 +56,6 @@ INSERT INTO dbo.Sections (name, sortOrder) VALUES
     ('Outdoor', 1);
 GO
 
--- Tables (matches the current buildTables() output in src/lib/data.ts)
-INSERT INTO dbo.HotelTables (id, num, sectionId, seats, status, occupiedSince) VALUES
-    ('T1',  1,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      2, 'occupied', DATEADD(MINUTE, -18, SYSDATETIME())),
-    ('T2',  2,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      4, 'billing',  DATEADD(MINUTE, -31, SYSDATETIME())),
-    ('T3',  3,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      4, 'free',     NULL),
-    ('T4',  4,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      6, 'free',     NULL),
-    ('T5',  5,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      4, 'occupied', DATEADD(MINUTE, -70, SYSDATETIME())),
-    ('T6',  6,  (SELECT id FROM dbo.Sections WHERE name = 'AC'),      2, 'free',     NULL),
-    ('T7',  7,  (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 2, 'billing',  DATEADD(MINUTE, -6,  SYSDATETIME())),
-    ('T8',  8,  (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 4, 'free',     NULL),
-    ('T9',  9,  (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 4, 'free',     NULL),
-    ('T10', 10, (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 6, 'occupied', DATEADD(MINUTE, -45, SYSDATETIME())),
-    ('T11', 11, (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 4, 'free',     NULL),
-    ('T12', 12, (SELECT id FROM dbo.Sections WHERE name = 'Outdoor'), 2, 'occupied', DATEADD(MINUTE, -71, SYSDATETIME()));
-GO
 
 -- Categories
 INSERT INTO dbo.Categories (id, label, sortOrder) VALUES

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { colors, statusColors } from "@/lib/colors";
 import type { HotelTable, Role, TableStatus } from "@/lib/types";
 
@@ -8,6 +9,7 @@ const STATUS_FILTERS: { value: TableStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "free", label: "Free" },
   { value: "occupied", label: "Occupied" },
+  { value: "ordered", label: "Order Sent" },
   { value: "billing", label: "Ready to Bill" },
 ];
 
@@ -17,6 +19,7 @@ interface Props {
   role: Role;
   userDisplay: string;
   onOpenTable: (table: HotelTable) => void;
+  onMarkOccupied: (table: HotelTable) => void;
   onGoAdmin: () => void;
   onLogout: () => void;
 }
@@ -49,7 +52,7 @@ function ClockIcon({ color }: { color: string }) {
   );
 }
 
-export default function TablesScreen({ tables, sections, role, userDisplay, onOpenTable, onGoAdmin, onLogout }: Props) {
+export default function TablesScreen({ tables, sections, role, userDisplay, onOpenTable, onMarkOccupied, onGoAdmin, onLogout }: Props) {
   const [sectionFilter, setSectionFilter] = useState(sections[0] ?? "");
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
   const [now, setNow] = useState(() => Date.now());
@@ -190,46 +193,65 @@ export default function TablesScreen({ tables, sections, role, userDisplay, onOp
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(158px,1fr))", gap: 14 }}>
           {visibleTables.map((tbl) => {
             const sc = statusColors[tbl.status];
-            return (
-              <button
-                key={tbl.id}
-                onClick={() => onOpenTable(tbl)}
-                className="table-card"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  minHeight: 122,
-                  padding: "14px 16px 12px",
-                  borderRadius: 14,
-                  border: `1px solid ${colors.border}`,
-                  borderLeft: `4px solid ${sc.dot}`,
-                  background: "white",
-                  boxShadow: "0 1px 2px oklch(0.2 0.02 260 / 0.06)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontSize: 19, fontWeight: 800, color: colors.text, lineHeight: 1.15 }}>
-                    Table {tbl.num}
-                  </div>
-                  <span
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: sc.dot,
-                      marginTop: 6,
-                      flex: "none",
-                    }}
-                  />
-                </div>
+            const cardStyle: CSSProperties = {
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              minHeight: 122,
+              padding: "14px 16px 12px",
+              borderRadius: 14,
+              border: `1px solid ${colors.border}`,
+              borderLeft: `4px solid ${sc.dot}`,
+              background: "white",
+              boxShadow: "0 1px 2px oklch(0.2 0.02 260 / 0.06)",
+              textAlign: "left",
+            };
 
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted }}>
-                  <SeatIcon color={colors.mutedLighter} />
-                  {tbl.seats} seats
+            const header = (
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color: colors.text, lineHeight: 1.15 }}>
+                  Table {tbl.num}
+                  {tbl.name ? (
+                    <div style={{ fontSize: 11, fontWeight: 600, color: colors.mutedLight }}>{tbl.name}</div>
+                  ) : null}
                 </div>
+                <span
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: sc.dot,
+                    marginTop: 6,
+                    flex: "none",
+                  }}
+                />
+              </div>
+            );
+
+            const seatsRow = (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: colors.muted }}>
+                <SeatIcon color={colors.mutedLighter} />
+                {tbl.seats} seats
+              </div>
+            );
+
+            return (
+              <div
+                key={tbl.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpenTable(tbl)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onOpenTable(tbl);
+                  }
+                }}
+                className="table-card"
+                style={{ ...cardStyle, cursor: "pointer" }}
+              >
+                {header}
+                {seatsRow}
 
                 <div
                   style={{
@@ -253,7 +275,7 @@ export default function TablesScreen({ tables, sections, role, userDisplay, onOp
                   >
                     {sc.label}
                   </span>
-                  {tbl.status !== "free" && tbl.occupiedSince && (
+                  {tbl.occupiedSince && (
                     <span
                       style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 600, color: colors.mutedLight }}
                       suppressHydrationWarning
@@ -263,7 +285,28 @@ export default function TablesScreen({ tables, sections, role, userDisplay, onOp
                     </span>
                   )}
                 </div>
-              </button>
+
+                {tbl.status === "free" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkOccupied(tbl);
+                    }}
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 9,
+                      border: "none",
+                      background: colors.accent,
+                      color: "white",
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Mark Occupied
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
